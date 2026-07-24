@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useParams } 
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
-const API = axios.create({ baseURL: 'http://localhost:4000/api' });
+const API = axios.create({ baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000/api' });
 API.interceptors.request.use(cfg => {
   const t = localStorage.getItem('token');
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
@@ -85,7 +85,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const socket = io('http://localhost:4000');
+   const socket = io(process.env.REACT_APP_API_URL?.replace('/api','') || 'http://localhost:4000');
     socket.on('ticket:created', t => setTickets(prev => [t, ...prev]));
     socket.on('ticket:updated', updated => setTickets(prev => prev.map(t => t.id === updated.id ? {...t, ...updated} : t)));
     socket.on('ticket:deleted', ({ id }) => setTickets(prev => prev.filter(t => t.id !== id)));
