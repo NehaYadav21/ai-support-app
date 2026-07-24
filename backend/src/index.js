@@ -6,6 +6,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { Pool } = require('pg');
+const setupDatabase = require('./setup');
 
 const authRoutes = require('./routes/auth');
 const ticketRoutes = require('./routes/tickets');
@@ -48,4 +49,6 @@ io.on('connection', (socket) => {
 initQueues(db, io);
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+setupDatabase().then(() => {
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+});
