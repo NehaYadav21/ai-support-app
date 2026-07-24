@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate, useParams } 
 import axios from 'axios';
 import { io } from 'socket.io-client';
 
+const SOCKET_URL = process.env.REACT_APP_API_URL?.replace('/api','') || 'http://localhost:4000';
 const API = axios.create({ baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000/api' });
 API.interceptors.request.use(cfg => {
   const t = localStorage.getItem('token');
@@ -85,7 +86,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-   const socket = io(process.env.REACT_APP_API_URL?.replace('/api','') || 'http://localhost:4000');
+    const socket = io(SOCKET_URL);
     socket.on('ticket:created', t => setTickets(prev => [t, ...prev]));
     socket.on('ticket:updated', updated => setTickets(prev => prev.map(t => t.id === updated.id ? {...t, ...updated} : t)));
     socket.on('ticket:deleted', ({ id }) => setTickets(prev => prev.filter(t => t.id !== id)));
@@ -109,7 +110,6 @@ function Dashboard() {
   const filtered = filter === 'all' ? tickets : tickets.filter(t => t.status === filter);
   const priorityColor = p => ({ urgent: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' }[p] || '#888');
   const statusColor = s => ({ open: '#3b82f6', in_progress: '#8b5cf6', resolved: '#22c55e', closed: '#6b7280' }[s] || '#888');
-
   const isOverdue = t => t.due_at && new Date(t.due_at) < new Date() && t.status !== 'resolved' && t.status !== 'closed';
 
   return (
@@ -233,7 +233,7 @@ function TicketDetail() {
   useEffect(() => {
     fetchTicket();
     fetchAgents();
-    const socket = io('http://localhost:4000');
+    const socket = io(SOCKET_URL);
     socket.emit('join_ticket', id);
     socket.on('message:new', m => setMessages(prev => [...prev, m]));
     socket.on('ticket:updated', t => { if (t.id === id) setTicket(prev => ({...prev, ...t})); });
@@ -304,18 +304,13 @@ function TicketDetail() {
   return (
     <div style={styles.page}>
       <button style={styles.back} onClick={() => nav('/dashboard')}>← All Tickets</button>
-
       <StatusBanner status={ticket.status} />
-
       {isOverdue && (
         <div style={{background:'#fef2f2', border:'1px solid #ef4444', padding:'10px 16px', borderRadius:8, marginBottom:16, color:'#ef4444', fontWeight:600}}>
           ⚠️ This ticket is overdue! Due was: {new Date(ticket.due_at).toLocaleString()}
         </div>
       )}
-
       <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
-
-        {/* Main Content */}
         <div style={{flex:2,minWidth:300}}>
           <h2 style={{marginTop:0,marginBottom:4}}>{ticket.title}</h2>
           <div style={{fontSize:12,color:'#888',marginBottom:16}}>
@@ -323,10 +318,7 @@ function TicketDetail() {
             {ticket.auto_resolved && <span style={styles.aiBadge}> 🤖 Auto-resolved</span>}
             {ticket.ai_confidence && <span style={{...styles.aiBadge, background:'#f0fdf4', color:'#16a34a', marginLeft:6}}> {ticket.ai_confidence}% confident</span>}
           </div>
-
           <div style={styles.descBox}>{ticket.description}</div>
-
-          {/* AI Summary + Next Step */}
           {ai.summary && (
             <div style={styles.aiBox}>
               <strong>🤖 AI Summary</strong>
@@ -338,8 +330,6 @@ function TicketDetail() {
               )}
             </div>
           )}
-
-          {/* Conversation Timeline */}
           <h4 style={{marginBottom:8}}>Conversation ({messages.length})</h4>
           <div style={styles.msgList}>
             {messages.length === 0 && <div style={{color:'#bbb',fontSize:13,padding:'12px 0'}}>No messages yet</div>}
@@ -363,8 +353,6 @@ function TicketDetail() {
               </div>
             ))}
           </div>
-
-          {/* Tone Selector */}
           <div style={{display:'flex',gap:8,alignItems:'center',marginTop:12,marginBottom:8}}>
             <span style={{fontSize:13,color:'#888'}}>Tone:</span>
             {['formal','friendly','apologetic'].map(t => (
@@ -373,15 +361,12 @@ function TicketDetail() {
               </button>
             ))}
           </div>
-
           <textarea style={{...styles.input, minHeight:80, resize:'vertical'}} placeholder="Write a reply..." value={reply} onChange={e => setReply(e.target.value)}/>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
             <button style={styles.btn} onClick={sendReply}>Send Reply</button>
             <button style={styles.btnAi} onClick={() => doAI('suggest')} disabled={aiLoading.suggest}>{aiLoading.suggest ? '…' : '✨ Suggest'}</button>
             <button style={styles.btnAi} onClick={() => doAI('polish')} disabled={!reply || aiLoading.polish}>{aiLoading.polish ? '…' : '✨ Polish'}</button>
           </div>
-
-          {/* Audit Log */}
           <div style={{marginTop:20}}>
             <button style={{...styles.btnSm, marginBottom:8}} onClick={() => setShowLogs(!showLogs)}>
               {showLogs ? '▼' : '▶'} Audit Log ({logs.length})
@@ -391,7 +376,7 @@ function TicketDetail() {
                 {logs.length === 0 && <div style={{color:'#bbb',fontSize:13}}>No logs yet</div>}
                 {logs.map(log => (
                   <div key={log.id} style={{fontSize:12,padding:'4px 0',borderBottom:'1px solid #e5e7eb',color:'#555'}}>
-                    <span style={{color:'#888'}}>{new Date(log.timestamp).toLocaleString()}</span>
+                    <span style={{color:'#888'}}>{new Date(log.created_at).toLocaleString()}</span>
                     {' · '}{log.action}
                     {log.performed_by_name && <span style={{color:'#3b82f6'}}> by {log.performed_by_name}</span>}
                   </div>
@@ -401,10 +386,7 @@ function TicketDetail() {
           </div>
         </div>
 
-        {/* Right Sidebar */}
         <div style={{flex:1,minWidth:220,display:'flex',flexDirection:'column',gap:12}}>
-
-          {/* Actions */}
           <div style={styles.sideCard}>
             <h4 style={{margin:'0 0 12px'}}>Status</h4>
             <div style={{display:'flex',flexDirection:'column',gap:6}}>
@@ -425,7 +407,6 @@ function TicketDetail() {
             {ticket.due_at && <div style={{fontSize:12,color: isOverdue?'#ef4444':'#888',marginTop:4}}>Due: <strong>{new Date(ticket.due_at).toLocaleString()}</strong></div>}
           </div>
 
-          {/* Assign Agent */}
           <div style={styles.sideCard}>
             <h4 style={{margin:'0 0 12px'}}>Assign Agent</h4>
             <select style={{...styles.input, marginBottom:8}} onChange={e => e.target.value && assignAgent(e.target.value)}>
@@ -435,7 +416,6 @@ function TicketDetail() {
             {ticket.agent_name && <div style={{fontSize:12,color:'#888'}}>Currently: <strong>{ticket.agent_name}</strong></div>}
           </div>
 
-          {/* Customer Info */}
           <div style={styles.sideCard}>
             <h4 style={{margin:'0 0 12px'}}>Customer Info</h4>
             <div style={{fontSize:13}}>
@@ -455,7 +435,6 @@ function TicketDetail() {
             </div>
           </div>
 
-          {/* Ticket Info */}
           <div style={styles.sideCard}>
             <h4 style={{margin:'0 0 12px'}}>Ticket Info</h4>
             <div style={{fontSize:12,color:'#888',display:'flex',flexDirection:'column',gap:4}}>
@@ -467,7 +446,6 @@ function TicketDetail() {
               {ticket.auto_resolved && <div style={{color:'#7c3aed'}}>🤖 Auto-resolved by AI</div>}
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -480,25 +458,25 @@ const styles = {
   card: { background: '#fff', padding: 32, borderRadius: 16, boxShadow: '0 20px 60px #0002', width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 12 },
   heading: { margin: '0 0 4px', fontSize: 24, fontWeight: 700, color: '#1e1b4b' },
   sub: { margin: '0 0 8px', color: '#888', fontSize: 14 },
-  input: { padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, width: '100%', boxSizing: 'border-box', outline: 'none', transition: 'border 0.2s', background: '#fafafa' },
-  btn: { padding: '11px 20px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 14, boxShadow: '0 4px 15px #667eea44' },
+  input: { padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: 10, fontSize: 14, width: '100%', boxSizing: 'border-box', outline: 'none', background: '#fafafa' },
+  btn: { padding: '11px 20px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, cursor: 'pointer', fontSize: 14 },
   btnSm: { padding: '6px 14px', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#444' },
-  btnAi: { padding: '8px 14px', background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', color: '#7c3aed', border: '1px solid #e9d5ff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: '0 2px 8px #7c3aed22' },
+  btnAi: { padding: '8px 14px', background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', color: '#7c3aed', border: '1px solid #e9d5ff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
   error: { background: '#fef2f2', color: '#dc2626', padding: '10px 14px', borderRadius: 8, fontSize: 13, border: '1px solid #fecaca' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingBottom: 16, borderBottom: '2px solid #e0e7ff', background: '#fff', padding: '16px 24px', borderRadius: 14, boxShadow: '0 2px 12px #0001', marginBottom: 20 },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '16px 24px', borderRadius: 14, boxShadow: '0 2px 12px #0001', marginBottom: 20 },
   statRow: { display: 'flex', gap: 16, marginBottom: 20, flexWrap: 'wrap' },
   statCard: { flex: 1, minWidth: 120, background: '#fff', padding: '20px 24px', borderRadius: 14, boxShadow: '0 2px 12px #0001' },
   filterBtn: { padding: '7px 16px', border: '1.5px solid #e0e7ff', borderRadius: 20, cursor: 'pointer', fontSize: 13, background: '#fff', color: '#555', fontWeight: 500 },
-  filterActive: { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', borderColor: 'transparent', boxShadow: '0 2px 8px #667eea44' },
+  filterActive: { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', borderColor: 'transparent' },
   ticketList: { display: 'flex', flexDirection: 'column', gap: 10 },
-  ticketRow: { background: '#fff', padding: '16px 20px', borderRadius: 12, boxShadow: '0 2px 8px #0001', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'center', transition: 'box-shadow 0.2s', border: '1.5px solid transparent' },
-  badge: { padding: '3px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, letterSpacing: 0.3 },
+  ticketRow: { background: '#fff', padding: '16px 20px', borderRadius: 12, boxShadow: '0 2px 8px #0001', cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'center' },
+  badge: { padding: '3px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700 },
   aiBadge: { padding: '3px 10px', borderRadius: 20, background: '#faf5ff', color: '#7c3aed', fontSize: 11, fontWeight: 700, border: '1px solid #e9d5ff' },
   loading: { padding: 60, textAlign: 'center', color: '#888', fontSize: 15 },
   empty: { padding: 60, textAlign: 'center', color: '#bbb', fontSize: 15 },
   back: { background: 'none', border: 'none', color: '#667eea', cursor: 'pointer', fontSize: 14, padding: '0 0 16px', fontWeight: 600 },
   descBox: { background: '#f8faff', padding: '14px 16px', borderRadius: 10, fontSize: 14, marginBottom: 16, whiteSpace: 'pre-wrap', border: '1.5px solid #e0e7ff', lineHeight: 1.6 },
-  aiBox: { background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', border: '1px solid #e9d5ff', padding: '14px 16px', borderRadius: 10, marginBottom: 16, fontSize: 14, boxShadow: '0 2px 8px #7c3aed11' },
+  aiBox: { background: 'linear-gradient(135deg, #faf5ff, #ede9fe)', border: '1px solid #e9d5ff', padding: '14px 16px', borderRadius: 10, marginBottom: 16, fontSize: 14 },
   msgList: { display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 450, overflowY: 'auto', padding: '4px 0' },
   msgBubble: { padding: '12px 14px', borderRadius: 12, fontSize: 14, boxShadow: '0 1px 4px #0001' },
   sideCard: { background: '#fff', padding: 18, borderRadius: 14, boxShadow: '0 2px 12px #0001', border: '1px solid #f0f0f0' },
